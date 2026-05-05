@@ -1,10 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHouse, faHand, faPills, faCheckCircle, faCheck, faTriangleExclamation, faMicrophone, faPhoneSlash, faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
+import {
+  faHouse, faHand, faPills, faCheckCircle, faCheck,
+  faTriangleExclamation, faMicrophone, faPhoneSlash,
+  faRightFromBracket, faPhone, faUsers
+} from '@fortawesome/free-solid-svg-icons';
 import { useRealtimeMeds } from '../hooks/useRealtimeMeds';
 import { useRealtimeAlerts } from '../hooks/useRealtimeAlerts';
+import { supabase } from '../lib/supabase';
 
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+interface Caregiver {
+  id: string;
+  name: string;
+  phone: string;
+}
 
 interface ElderlyViewProps {
   elderId: string;
@@ -21,12 +32,25 @@ export default function ElderlyView({ elderId, profileName, onSignOut }: Elderly
   const [isListening, setIsListening] = useState(false);
   const [showVideoCall, setShowVideoCall] = useState(false);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+  const [caregivers, setCaregivers] = useState<Caregiver[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
+
+  // Fetch linked caregivers
+  useEffect(() => {
+    supabase
+      .from('profiles')
+      .select('id, name, phone')
+      .eq('elder_id', elderId)
+      .eq('role', 'caregiver')
+      .then(({ data }) => {
+        if (data) setCaregivers(data as Caregiver[]);
+      });
+  }, [elderId]);
 
   const nextPending = meds.find((m) => m.status === 'pending');
 
@@ -86,7 +110,8 @@ export default function ElderlyView({ elderId, profileName, onSignOut }: Elderly
     if (videoRef.current && videoStream) videoRef.current.srcObject = videoStream;
   }, [videoStream, showVideoCall]);
 
-  const greeting = currentTime.getHours() < 12 ? 'Chào buổi sáng' : currentTime.getHours() < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
+  const greeting = currentTime.getHours() < 12 ? 'Chào buổi sáng'
+    : currentTime.getHours() < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
 
   return (
     <div className="elderly-view">
@@ -110,6 +135,7 @@ export default function ElderlyView({ elderId, profileName, onSignOut }: Elderly
       </div>
 
       <div className="elderly-content">
+        {/* Medication Card */}
         <div className="med-card">
           <div className="med-card-header">
             <div className="med-card-icon"><FontAwesomeIcon icon={faPills} /></div>
@@ -127,10 +153,42 @@ export default function ElderlyView({ elderId, profileName, onSignOut }: Elderly
             </div>
             <button className="med-done-btn" onClick={handleDone}><FontAwesomeIcon icon={faCheck} /> Đã uống</button>
           </>) : (
-            <button className="med-done-btn completed" disabled><FontAwesomeIcon icon={faCheckCircle} /> {meds.length === 0 ? 'Chưa có thuốc' : 'Đã uống hết'}</button>
+            <button className="med-done-btn completed" disabled>
+              <FontAwesomeIcon icon={faCheckCircle} /> {meds.length === 0 ? 'Chưa có lịch thuốc' : 'Đã uống hết hôm nay'}
+            </button>
           )}
         </div>
 
+        {/* Caregiver Contact List */}
+        <div className="contact-section">
+          <div className="contact-section-title">
+            <FontAwesomeIcon icon={faUsers} /> Người thân đang theo dõi
+          </div>
+          {caregivers.length === 0 ? (
+            <div className="contact-empty">Chưa có người thân nào liên kết</div>
+          ) : (
+            <div className="contact-grid">
+              {caregivers.map((cg) => (
+                <a
+                  key={cg.id}
+                  href={`tel:${cg.phone}`}
+                  className="contact-card"
+                  aria-label={`Gọi cho ${cg.name}`}
+                >
+                  <div className="contact-avatar">
+                    {cg.name.split(' ').pop()?.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="contact-name">{cg.name}</div>
+                  <div className="contact-call-btn">
+                    <FontAwesomeIcon icon={faPhone} /> Gọi
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* SOS Button */}
         <div className="sos-section">
           <div className="sos-btn-wrapper">
             <div className="sos-pulse-ring" /><div className="sos-pulse-ring" /><div className="sos-pulse-ring" />
