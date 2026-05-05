@@ -3,31 +3,70 @@ import ElderlyView from './pages/ElderlyView';
 import CaregiverView from './pages/CaregiverView';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHouse, faPersonCane, faUserDoctor } from '@fortawesome/free-solid-svg-icons';
-import type { Alert, Medication } from './data/mockData';
+import { medications as initialMeds, elderlyProfile as initialProfile, activityStatus as initialActivity, mockAlerts as initialAlerts } from './data/mockData';
+import type { Alert, Medication, ElderlyProfile, ActivityStatus } from './data/mockData';
 import './index.css';
 
 type Role = 'select' | 'elderly' | 'caregiver';
 
 function App() {
   const [role, setRole] = useState<Role>('select');
-  const [caregiverAlerts, setCaregiverAlerts] = useState<Alert[]>([]);
+  const [caregiverAlerts, setCaregiverAlerts] = useState<Alert[]>(initialAlerts);
+  const [meds, setMeds] = useState<Medication[]>(initialMeds);
+  const [elderlyProfile] = useState<ElderlyProfile>(initialProfile);
+  const [activity] = useState<ActivityStatus>(initialActivity);
 
-  const handleMedicationMissed = useCallback((med: Medication) => {
+  const handleMedicationStatusChange = useCallback((med: Medication, status: Medication['status']) => {
+    setMeds((prev) => prev.map((m) => (m.id === med.id ? { ...m, status } : m)));
+    
+    if (status === 'missed') {
+      const newAlert: Alert = {
+        id: `alert-missed-${med.id}-${Date.now()}`,
+        type: 'medication',
+        message: `${med.name} (${med.time}) chưa được uống!`,
+        timestamp: new Date().toISOString(),
+        read: false,
+      };
+      setCaregiverAlerts((prev) => [newAlert, ...prev]);
+    } else if (status === 'completed') {
+      const newAlert: Alert = {
+        id: `alert-completed-${med.id}-${Date.now()}`,
+        type: 'health',
+        message: `Đã uống: ${med.name} (${med.time})`,
+        timestamp: new Date().toISOString(),
+        read: false,
+      };
+      setCaregiverAlerts((prev) => [newAlert, ...prev]);
+    }
+  }, []);
+
+  const handleSOS = useCallback(() => {
     const newAlert: Alert = {
-      id: `alert-missed-${med.id}-${Date.now()}`,
-      type: 'medication',
-      message: `${med.name} (${med.time}) chưa được uống!`,
+      id: `alert-sos-${Date.now()}`,
+      type: 'sos',
+      message: `Cảnh báo khẩn cấp (SOS) từ ${elderlyProfile.name}!`,
       timestamp: new Date().toISOString(),
       read: false,
     };
     setCaregiverAlerts((prev) => [newAlert, ...prev]);
+  }, [elderlyProfile.name]);
+
+  const handleAddMedication = useCallback((med: Medication) => {
+    setMeds(prev => [...prev, med].sort((a, b) => a.time.localeCompare(b.time)));
+  }, []);
+
+  const handleDeleteMedication = useCallback((id: string) => {
+    setMeds(prev => prev.filter(m => m.id !== id));
   }, []);
 
   if (role === 'elderly') {
     return (
       <ElderlyView
         onBack={() => setRole('select')}
-        onMedicationMissed={handleMedicationMissed}
+        meds={meds}
+        onMedicationStatusChange={handleMedicationStatusChange}
+        elderlyProfile={elderlyProfile}
+        onSOS={handleSOS}
       />
     );
   }
@@ -36,7 +75,12 @@ function App() {
     return (
       <CaregiverView
         onBack={() => setRole('select')}
-        externalAlerts={caregiverAlerts}
+        alerts={caregiverAlerts}
+        meds={meds}
+        elderlyProfile={elderlyProfile}
+        activity={activity}
+        onAddMedication={handleAddMedication}
+        onDeleteMedication={handleDeleteMedication}
       />
     );
   }

@@ -1,62 +1,68 @@
-import { useState, useEffect } from 'react';
-import {
-  medications,
-  healthMetrics,
-  activityStatus as initialActivity,
-  elderlyProfile,
-  mockAlerts as initialAlerts,
-  generateHeartRateHistory,
-  type Alert,
-  type Medication,
-  type ActivityStatus,
-} from '../data/mockData';
+import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faBell, faPills, faTriangleExclamation, faHeartPulse, faStethoscope, faPersonRunning, faCircle, faLocationDot, faStar, faCheck, faXmark, faExclamation, faHeart } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faBell, faPills, faTriangleExclamation, faHeartPulse, faStethoscope, faLocationDot, faCheck, faXmark, faExclamation, faHeart, faGear, faTrash, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import type { Alert, Medication, ElderlyProfile, ActivityStatus } from '../data/mockData';
+
+// Fix Leaflet default icon issue in React
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 interface CaregiverViewProps {
   onBack: () => void;
-  externalAlerts?: Alert[];
+  alerts: Alert[];
+  meds: Medication[];
+  elderlyProfile: ElderlyProfile;
+  activity: ActivityStatus;
+  onAddMedication: (med: Medication) => void;
+  onDeleteMedication: (id: string) => void;
 }
 
-export default function CaregiverView({ onBack, externalAlerts = [] }: CaregiverViewProps) {
-  const [alerts, setAlerts] = useState<Alert[]>([...initialAlerts, ...externalAlerts]);
-  const [heartRate, setHeartRate] = useState(healthMetrics.heartRate);
-  const [activity, setActivity] = useState<ActivityStatus>(initialActivity);
-  const [meds] = useState<Medication[]>(medications);
-  const [hrHistory] = useState(generateHeartRateHistory);
+// Mock Analytics Data
+const heartRateData = [
+  { time: '08:00', value: 72 }, { time: '10:00', value: 75 },
+  { time: '12:00', value: 80 }, { time: '14:00', value: 78 },
+  { time: '16:00', value: 74 }, { time: '18:00', value: 76 }
+];
 
-  // Merge external alerts
-  useEffect(() => {
-    if (externalAlerts.length > 0) {
-      setAlerts((prev) => {
-        const ids = new Set(prev.map((a) => a.id));
-        const newAlerts = externalAlerts.filter((a) => !ids.has(a.id));
-        return [...newAlerts, ...prev];
-      });
-    }
-  }, [externalAlerts]);
+const bloodPressureData = [
+  { day: 'T2', sys: 120, dia: 80 }, { day: 'T3', sys: 122, dia: 82 },
+  { day: 'T4', sys: 118, dia: 79 }, { day: 'T5', sys: 125, dia: 85 },
+  { day: 'T6', sys: 121, dia: 81 }, { day: 'T7', sys: 119, dia: 80 }
+];
 
-  // Simulate real-time heart rate
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setHeartRate(72 + Math.floor(Math.random() * 12 - 4));
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
+export default function CaregiverView({ onBack, alerts, meds, elderlyProfile, onAddMedication, onDeleteMedication }: CaregiverViewProps) {
+  const [showSettings, setShowSettings] = useState(false);
+  
+  // Settings Form State
+  const [newMedName, setNewMedName] = useState('');
+  const [newMedTime, setNewMedTime] = useState('08:00');
+  const [newMedDose, setNewMedDose] = useState('1 viên');
 
-  // Simulate activity warning toggle
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setActivity({
-        status: 'warning',
-        message: 'Cảnh báo: Không có vận động trong 6 giờ qua',
-        lastMovement: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-      });
-    }, 20000);
-    return () => clearTimeout(timeout);
-  }, []);
+  const unreadAlerts = alerts.filter(a => !a.read);
+  const mapCenter: [number, number] = [21.0382, 105.7827]; // Coordinates for 144 Xuan Thuy
 
-  const unreadAlerts = alerts.filter((a) => !a.read);
+  const handleAddMedSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMedName) return;
+    onAddMedication({
+      id: `med-${Date.now()}`,
+      name: newMedName,
+      time: newMedTime,
+      dosage: newMedDose,
+      status: 'pending'
+    });
+    setNewMedName('');
+    setNewMedTime('08:00');
+    setNewMedDose('1 viên');
+  };
 
   return (
     <div className="caregiver-view">
@@ -69,12 +75,16 @@ export default function CaregiverView({ onBack, externalAlerts = [] }: Caregiver
             <span className="cg-badge">Người thân</span>
           </div>
           <div className="cg-header-right">
-            <button className="cg-notif-btn" aria-label="Thông báo">
+            <button className="cg-notif-btn" onClick={() => setShowSettings(true)} aria-label="Cài đặt">
+              <FontAwesomeIcon icon={faGear} />
+            </button>
+            <button className="cg-notif-btn" aria-label="Thông báo" style={{ marginLeft: '10px' }}>
               <FontAwesomeIcon icon={faBell} />
               {unreadAlerts.length > 0 && <span className="cg-notif-dot" />}
             </button>
           </div>
         </div>
+        
         <div className="cg-profile-info">
           <h2><FontAwesomeIcon icon={elderlyProfile.avatar} /> {elderlyProfile.name}</h2>
           <p>{elderlyProfile.age} tuổi · Đang được theo dõi</p>
@@ -82,66 +92,69 @@ export default function CaregiverView({ onBack, externalAlerts = [] }: Caregiver
       </div>
 
       <div className="cg-content">
-        {/* Alert Banners */}
-        {unreadAlerts.map((alert) => (
-          <div
-            key={alert.id}
-            className={`cg-alert-banner ${alert.type === 'sos' ? 'danger' : ''}`}
-          >
-            <span className="cg-alert-icon">
-              <FontAwesomeIcon icon={
-                alert.type === 'medication' ? faPills :
-                alert.type === 'sos' ? faTriangleExclamation :
-                alert.type === 'health' ? faHeartPulse : faExclamation
-              } />
-            </span>
-            <span className="cg-alert-text">{alert.message}</span>
-            <span className="cg-alert-time">
-              {new Date(alert.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-            </span>
+        {/* Alerts */}
+        {unreadAlerts.length > 0 && (
+          <div className="cg-alerts">
+            {unreadAlerts.map(alert => (
+              <div 
+                key={alert.id} 
+                className={`cg-alert-banner ${alert.type === 'sos' ? 'danger' : alert.type === 'health' ? 'success' : ''}`}
+              >
+                <span className="cg-alert-icon">
+                  <FontAwesomeIcon icon={
+                    alert.type === 'medication' ? faPills :
+                    alert.type === 'sos' ? faTriangleExclamation :
+                    alert.type === 'health' ? faHeartPulse : faExclamation
+                  } />
+                </span>
+                <span className="cg-alert-text">{alert.message}</span>
+                <span className="cg-alert-time">
+                  {new Date(alert.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
 
-        {/* Health Cards */}
-        <div className="cg-health-grid">
-          <div className="cg-health-card heart">
-            <div className="cg-health-card-icon"><FontAwesomeIcon icon={faHeart} /></div>
-            <div className="cg-health-card-label">Nhịp tim</div>
-            <div className="cg-health-card-value">
-              {heartRate} <span>bpm</span>
-            </div>
-            <div className={`cg-health-card-status ${heartRate > 90 ? 'warning' : 'normal'}`}>
-              {heartRate > 90 ? '⚠️ Cao' : '✓ Bình thường'}
-            </div>
-            <div className="cg-hr-chart">
-              {hrHistory.slice(-12).map((d, i) => (
-                <div key={i} className="cg-hr-bar" style={{ height: `${((d.value - 60) / 30) * 100}%` }} title={`${d.time}: ${d.value} bpm`} />
-              ))}
-            </div>
+        {/* Health Charts */}
+        <div className="cg-section">
+          <div className="cg-section-header">
+            <span className="cg-section-title"><FontAwesomeIcon icon={faHeart} /> Biểu đồ Nhịp tim (Hôm nay)</span>
           </div>
-
-          <div className="cg-health-card bp">
-            <div className="cg-health-card-icon"><FontAwesomeIcon icon={faStethoscope} /></div>
-            <div className="cg-health-card-label">Huyết áp</div>
-            <div className="cg-health-card-value">
-              {healthMetrics.bloodPressureSystolic}/{healthMetrics.bloodPressureDiastolic}
-              <span> mmHg</span>
-            </div>
-            <div className="cg-health-card-status normal">✓ Bình thường</div>
+          <div style={{ width: '100%', height: 200, background: 'white', borderRadius: '12px', padding: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <ResponsiveContainer>
+              <AreaChart data={heartRateData}>
+                <defs>
+                  <linearGradient id="colorHeart" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="time" axisLine={false} tickLine={false} fontSize={12} />
+                <YAxis domain={['dataMin - 10', 'dataMax + 10']} axisLine={false} tickLine={false} fontSize={12} width={30} />
+                <RechartsTooltip />
+                <Area type="monotone" dataKey="value" stroke="#EF4444" fillOpacity={1} fill="url(#colorHeart)" />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Activity Monitor */}
         <div className="cg-section">
           <div className="cg-section-header">
-            <span className="cg-section-title"><FontAwesomeIcon icon={faPersonRunning} /> Hoạt động</span>
-            <span className={`cg-section-badge ${activity.status}`}>
-              {activity.status === 'normal' ? '✓ Bình thường' : '⚠️ Cảnh báo'}
-            </span>
+            <span className="cg-section-title"><FontAwesomeIcon icon={faStethoscope} /> Biểu đồ Huyết áp (7 ngày)</span>
           </div>
-          <div className="cg-activity-detail">
-            <span><FontAwesomeIcon icon={faCircle} style={{ color: activity.status === 'normal' ? 'var(--success)' : 'var(--warning)', fontSize: '12px' }} /></span>
-            {activity.message}
+          <div style={{ width: '100%', height: 200, background: 'white', borderRadius: '12px', padding: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <ResponsiveContainer>
+              <LineChart data={bloodPressureData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={12} />
+                <YAxis domain={[60, 150]} axisLine={false} tickLine={false} fontSize={12} width={30} />
+                <RechartsTooltip />
+                <Line type="monotone" dataKey="sys" stroke="#3B82F6" strokeWidth={2} name="Tâm thu" />
+                <Line type="monotone" dataKey="dia" stroke="#10B981" strokeWidth={2} name="Tâm trương" />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
@@ -150,45 +163,84 @@ export default function CaregiverView({ onBack, externalAlerts = [] }: Caregiver
           <div className="cg-section-header">
             <span className="cg-section-title"><FontAwesomeIcon icon={faPills} /> Lịch uống thuốc</span>
           </div>
-          {meds.map((med) => (
-            <div key={med.id} className="cg-med-item">
-              <div className={`cg-med-check ${med.status}`}>
-                {med.status === 'completed' ? <FontAwesomeIcon icon={faCheck} /> : med.status === 'missed' ? <FontAwesomeIcon icon={faXmark} /> : ''}
+          {meds.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'var(--gray-500)', padding: '20px' }}>Chưa có lịch thuốc.</p>
+          ) : (
+            meds.map((med) => (
+              <div key={med.id} className="cg-med-item">
+                <div className={`cg-med-check ${med.status}`}>
+                  {med.status === 'completed' ? <FontAwesomeIcon icon={faCheck} /> : med.status === 'missed' ? <FontAwesomeIcon icon={faXmark} /> : ''}
+                </div>
+                <div className="cg-med-info">
+                  <div className="cg-med-name">{med.name}</div>
+                  <div className="cg-med-meta">{med.time} · {med.dosage}</div>
+                </div>
               </div>
-              <div className="cg-med-info">
-                <div className="cg-med-name">{med.name}</div>
-                <div className="cg-med-time">{med.time} · {med.dosage}</div>
-              </div>
-              <span className={`cg-med-status ${med.status}`}>
-                {med.status === 'completed' ? 'Đã uống' : med.status === 'missed' ? 'Bỏ lỡ' : 'Chờ uống'}
-              </span>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
-        {/* Map */}
+        {/* Leaflet Map Geofencing */}
         <div className="cg-section">
           <div className="cg-section-header">
-            <span className="cg-section-title"><FontAwesomeIcon icon={faLocationDot} /> Vị trí hiện tại</span>
+            <span className="cg-section-title"><FontAwesomeIcon icon={faLocationDot} /> Vị trí hiện tại & Vùng an toàn</span>
           </div>
-          <div className="cg-map-frame">
-            <div className="cg-map-pin"><FontAwesomeIcon icon={faLocationDot} /></div>
-            <div className="cg-map-label">144 Xuân Thủy, Cầu Giấy, Hà Nội</div>
+          <div style={{ height: '250px', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <MapContainer center={mapCenter} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              />
+              <Marker position={mapCenter}>
+                <Popup>
+                  {elderlyProfile.name} đang ở đây.<br/>144 Xuân Thủy, Cầu Giấy.
+                </Popup>
+              </Marker>
+              <Circle center={mapCenter} radius={500} pathOptions={{ color: 'var(--success)', fillColor: 'var(--success)', fillOpacity: 0.2 }} />
+            </MapContainer>
           </div>
-        </div>
-
-        {/* Premium CTA */}
-        <div className="cg-premium">
-          <h3><FontAwesomeIcon icon={faStar} /> Nâng cấp Premium</h3>
-          <p>Theo dõi sức khỏe nâng cao, báo cáo tuần & nhiều hơn</p>
-          <div className="cg-premium-price">
-            99.000đ <span>/tháng</span>
-          </div>
-          <button className="cg-premium-btn" onClick={() => alert('Tính năng đang phát triển!')}>
-            Upgrade to Premium
-          </button>
+          <p style={{ fontSize: '13px', color: 'var(--gray-500)', marginTop: '8px' }}>Cảnh báo sẽ được gửi nếu rời khỏi vòng tròn 500m.</p>
         </div>
       </div>
+
+      {/* Settings Modal for Remote Config */}
+      {showSettings && (
+        <div className="sos-modal-overlay" onClick={() => setShowSettings(false)}>
+          <div className="sos-modal" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'left', padding: '24px' }}>
+            <h2 style={{ marginBottom: '20px', color: 'var(--primary)' }}><FontAwesomeIcon icon={faGear} /> Cấu hình từ xa</h2>
+            
+            <h3 style={{ fontSize: '16px', marginBottom: '12px' }}>Quản lý đơn thuốc</h3>
+            <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '20px' }}>
+              {meds.map(med => (
+                <div key={med.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #eee' }}>
+                  <div>
+                    <strong>{med.name}</strong> <span style={{ fontSize: '12px', color: '#666' }}>({med.time} - {med.dosage})</span>
+                  </div>
+                  <button onClick={() => onDeleteMedication(med.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}>
+                    <FontAwesomeIcon icon={faTrash} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <form onSubmit={handleAddMedSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: '#f8f9fa', padding: '15px', borderRadius: '8px' }}>
+              <h4 style={{ margin: 0 }}>Thêm thuốc mới</h4>
+              <input type="text" placeholder="Tên thuốc (VD: Thuốc mỡ)" value={newMedName} onChange={e => setNewMedName(e.target.value)} required style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }} />
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input type="time" value={newMedTime} onChange={e => setNewMedTime(e.target.value)} required style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', flex: 1 }} />
+                <input type="text" placeholder="Liều lượng" value={newMedDose} onChange={e => setNewMedDose(e.target.value)} required style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', flex: 1 }} />
+              </div>
+              <button type="submit" style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '10px', borderRadius: '4px', cursor: 'pointer' }}>
+                <FontAwesomeIcon icon={faPlus} /> Thêm
+              </button>
+            </form>
+
+            <button className="sos-modal-close" onClick={() => setShowSettings(false)} style={{ marginTop: '20px' }}>
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
