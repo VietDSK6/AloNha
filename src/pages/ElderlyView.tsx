@@ -110,11 +110,11 @@ export default function ElderlyView({ onBack, onMedicationMissed }: ElderlyViewP
         {/* Contact Grid */}
         <div className="contact-grid">
           {elderlyProfile.contacts.map((c) => (
-            <button key={c.id} className="contact-btn" onClick={() => alert(`Đang gọi ${c.name}...`)}>
+            <a key={c.id} className="contact-btn" href={`tel:${c.phone}`} style={{ textDecoration: 'none' }}>
               <div className="contact-avatar"><FontAwesomeIcon icon={c.avatar} /></div>
               <span>Gọi {c.relation === 'Con trai' ? 'Con' : 'Cháu'}</span>
               <small>{c.name}</small>
-            </button>
+            </a>
           ))}
         </div>
       </div>
