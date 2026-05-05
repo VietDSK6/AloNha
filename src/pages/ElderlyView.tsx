@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHouse, faArrowLeft, faHand, faPills, faCheckCircle, faCheck, faTriangleExclamation, faMicrophone, faVideo, faPhoneSlash } from '@fortawesome/free-solid-svg-icons';
+import { faHouse, faArrowLeft, faHand, faPills, faCheckCircle, faCheck, faTriangleExclamation, faMicrophone, faPhoneSlash } from '@fortawesome/free-solid-svg-icons';
 import type { Medication, ElderlyProfile } from '../data/mockData';
 
 // Polyfill for SpeechRecognition
@@ -116,17 +116,17 @@ export default function ElderlyView({ onBack, meds, elderlyProfile, onMedication
   };
 
   // Video Call Simulation
-  const startVideoCall = async (contactName: string) => {
-    speak(`Đang gọi video cho ${contactName}`);
-    setShowVideoCall(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      setVideoStream(stream);
-    } catch (err) {
-      console.error("Camera error:", err);
-      alert("Không thể truy cập camera.");
-    }
-  };
+  // const startVideoCall = async (contactName: string) => {
+  //   speak(`Đang gọi video cho ${contactName}`);
+  //   setShowVideoCall(true);
+  //   try {
+  //     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  //     setVideoStream(stream);
+  //   } catch (err) {
+  //     console.error("Camera error:", err);
+  //     alert("Không thể truy cập camera.");
+  //   }
+  // };
 
   const endVideoCall = () => {
     if (videoStream) {

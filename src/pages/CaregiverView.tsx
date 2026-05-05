@@ -205,39 +205,60 @@ export default function CaregiverView({ onBack, alerts, meds, elderlyProfile, on
 
       {/* Settings Modal for Remote Config */}
       {showSettings && (
-        <div className="sos-modal-overlay" onClick={() => setShowSettings(false)}>
-          <div className="sos-modal" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'left', padding: '24px' }}>
-            <h2 style={{ marginBottom: '20px', color: 'var(--primary)' }}><FontAwesomeIcon icon={faGear} /> Cấu hình từ xa</h2>
-            
-            <h3 style={{ fontSize: '16px', marginBottom: '12px' }}>Quản lý đơn thuốc</h3>
-            <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '20px' }}>
-              {meds.map(med => (
-                <div key={med.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #eee' }}>
-                  <div>
-                    <strong>{med.name}</strong> <span style={{ fontSize: '12px', color: '#666' }}>({med.time} - {med.dosage})</span>
-                  </div>
-                  <button onClick={() => onDeleteMedication(med.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}>
-                    <FontAwesomeIcon icon={faTrash} />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <form onSubmit={handleAddMedSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: '#f8f9fa', padding: '15px', borderRadius: '8px' }}>
-              <h4 style={{ margin: 0 }}>Thêm thuốc mới</h4>
-              <input type="text" placeholder="Tên thuốc (VD: Thuốc mỡ)" value={newMedName} onChange={e => setNewMedName(e.target.value)} required style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }} />
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <input type="time" value={newMedTime} onChange={e => setNewMedTime(e.target.value)} required style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', flex: 1 }} />
-                <input type="text" placeholder="Liều lượng" value={newMedDose} onChange={e => setNewMedDose(e.target.value)} required style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', flex: 1 }} />
-              </div>
-              <button type="submit" style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '10px', borderRadius: '4px', cursor: 'pointer' }}>
-                <FontAwesomeIcon icon={faPlus} /> Thêm
+        <div className="settings-modal-overlay" onClick={() => setShowSettings(false)}>
+          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="settings-modal-header">
+              <h2><FontAwesomeIcon icon={faGear} /> Cấu hình từ xa</h2>
+              <button className="settings-modal-close-icon" onClick={() => setShowSettings(false)}>
+                <FontAwesomeIcon icon={faXmark} />
               </button>
-            </form>
+            </div>
+            
+            <div className="settings-modal-body">
+              <div style={{ marginBottom: '24px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--gray-800)', marginBottom: '16px' }}>Quản lý đơn thuốc</h3>
+                <div style={{ maxHeight: '200px', overflowY: 'auto', background: 'var(--gray-50)', borderRadius: 'var(--radius-md)', padding: '8px' }}>
+                  {meds.length === 0 ? (
+                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--gray-500)', fontSize: '14px' }}>Chưa có thuốc nào.</div>
+                  ) : (
+                    meds.map(med => (
+                      <div key={med.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'white', borderRadius: '8px', marginBottom: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--gray-800)' }}>{med.name}</div>
+                          <div style={{ fontSize: '13px', color: 'var(--gray-500)' }}>{med.time} • {med.dosage}</div>
+                        </div>
+                        <button onClick={() => onDeleteMedication(med.id)} style={{ background: 'var(--danger-surface)', border: 'none', color: 'var(--danger)', width: '32px', height: '32px', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' }}>
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
 
-            <button className="sos-modal-close" onClick={() => setShowSettings(false)} style={{ marginTop: '20px' }}>
-              Đóng
-            </button>
+              <div style={{ background: 'var(--white)', borderTop: '1px solid var(--gray-200)', paddingTop: '24px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--gray-800)', marginBottom: '16px' }}>Thêm thuốc mới</h3>
+                <form onSubmit={handleAddMedSubmit}>
+                  <div className="settings-form-group">
+                    <label>Tên thuốc</label>
+                    <input type="text" className="settings-input" placeholder="VD: Thuốc mỡ, Thuốc Huyết Áp" value={newMedName} onChange={e => setNewMedName(e.target.value)} required />
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+                    <div className="settings-form-group" style={{ flex: 1, marginBottom: 0 }}>
+                      <label>Giờ uống</label>
+                      <input type="time" className="settings-input" value={newMedTime} onChange={e => setNewMedTime(e.target.value)} required />
+                    </div>
+                    <div className="settings-form-group" style={{ flex: 1, marginBottom: 0 }}>
+                      <label>Liều lượng</label>
+                      <input type="text" className="settings-input" placeholder="VD: 1 viên" value={newMedDose} onChange={e => setNewMedDose(e.target.value)} required />
+                    </div>
+                  </div>
+                  <button type="submit" className="settings-btn-primary">
+                    <FontAwesomeIcon icon={faPlus} /> Thêm vào lịch
+                  </button>
+                </form>
+              </div>
+            </div>
           </div>
         </div>
       )}
