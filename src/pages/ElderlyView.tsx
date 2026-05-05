@@ -17,7 +17,7 @@ interface ElderlyViewProps {
 export default function ElderlyView({ onBack, meds, elderlyProfile, onMedicationStatusChange, onSOS }: ElderlyViewProps) {
   const [showSOS, setShowSOS] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  
+
   // Accessibility & Video Call States
   const [isListening, setIsListening] = useState(false);
   const [showVideoCall, setShowVideoCall] = useState(false);
@@ -96,7 +96,7 @@ export default function ElderlyView({ onBack, meds, elderlyProfile, onMedication
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript.toLowerCase();
       console.log('Voice command:', transcript);
-      
+
       if (transcript.includes('cứu') || transcript.includes('cấp cứu') || transcript.includes('sos')) {
         handleSOSClick();
       } else if (transcript.includes('uống thuốc') || transcript.includes('đã uống')) {
@@ -161,7 +161,7 @@ export default function ElderlyView({ onBack, meds, elderlyProfile, onMedication
             <h2>{greeting}, {elderlyProfile.name.split(' ').pop()} <FontAwesomeIcon icon={faHand} /></h2>
             <p>Chạm là thấy, gọi là nghe</p>
           </div>
-          <button 
+          <button
             onClick={toggleListening}
             style={{
               width: '50px', height: '50px', borderRadius: '50%', border: 'none',
@@ -233,17 +233,6 @@ export default function ElderlyView({ onBack, meds, elderlyProfile, onMedication
                 <span>Gọi {c.relation === 'Con trai' ? 'Con' : 'Cháu'}</span>
                 <small>{c.name}</small>
               </a>
-              <button 
-                onClick={() => startVideoCall(c.name)}
-                style={{
-                  background: 'var(--white)', border: '2px solid var(--gray-200)', borderRadius: 'var(--radius-xl)',
-                  width: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'var(--accent)', fontSize: '24px', cursor: 'pointer', transition: 'all 0.25s'
-                }}
-                aria-label="Gọi Video"
-              >
-                <FontAwesomeIcon icon={faVideo} />
-              </button>
             </div>
           ))}
         </div>
@@ -268,11 +257,11 @@ export default function ElderlyView({ onBack, meds, elderlyProfile, onMedication
       {showVideoCall && (
         <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 2000, display: 'flex', flexDirection: 'column' }}>
           <div style={{ flex: 1, position: 'relative' }}>
-            <video 
-              ref={videoRef} 
-              autoPlay 
-              playsInline 
-              muted 
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
             <div style={{ position: 'absolute', top: '20px', left: 0, right: 0, textAlign: 'center', color: 'white' }}>
@@ -281,7 +270,7 @@ export default function ElderlyView({ onBack, meds, elderlyProfile, onMedication
             </div>
           </div>
           <div style={{ padding: '30px', display: 'flex', justifyContent: 'center', background: 'linear-gradient(transparent, rgba(0,0,0,0.8))' }}>
-            <button 
+            <button
               onClick={endVideoCall}
               style={{
                 width: '72px', height: '72px', borderRadius: '50%', background: '#EF4444',
