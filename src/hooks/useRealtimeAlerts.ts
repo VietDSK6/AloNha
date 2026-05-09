@@ -46,13 +46,21 @@ export function useRealtimeAlerts(elderId: string | null) {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'alerts',
           filter: `elder_id=eq.${elderId}`,
         },
         (payload) => {
-          setAlerts((prev) => [payload.new as AlertRow, ...prev]);
+          if (payload.eventType === 'INSERT') {
+            setAlerts((prev) => [payload.new as AlertRow, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setAlerts((prev) =>
+              prev.map((a) => (a.id === payload.new.id ? (payload.new as AlertRow) : a))
+            );
+          } else if (payload.eventType === 'DELETE') {
+            setAlerts((prev) => prev.filter((a) => a.id !== payload.old.id));
+          }
         }
       )
       .subscribe();
@@ -71,5 +79,20 @@ export function useRealtimeAlerts(elderId: string | null) {
     if (error) console.error('Error creating alert:', error);
   };
 
-  return { alerts, loading, createAlert };
+  const markAsRead = async (alertId: string) => {
+    const { error } = await supabase
+      .from('alerts')
+      .update({ read: true })
+      .eq('id', alertId);
+    
+    if (error) {
+      console.error('Error marking alert as read:', error);
+    } else {
+      setAlerts((prev) =>
+        prev.map((a) => (a.id === alertId ? { ...a, read: true } : a))
+      );
+    }
+  };
+
+  return { alerts, loading, createAlert, markAsRead };
 }

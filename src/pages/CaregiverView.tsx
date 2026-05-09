@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBell, faPills, faTriangleExclamation, faHeartPulse, faStethoscope, faLocationDot, faCheck, faXmark, faExclamation, faHeart, faGear, faTrash, faPlus, faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useRealtimeMeds } from '../hooks/useRealtimeMeds';
@@ -22,6 +22,14 @@ interface CaregiverViewProps {
   onSignOut: () => void;
 }
 
+function MapRecenter({ center }: { center: [number, number] }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, map.getZoom());
+  }, [center, map]);
+  return null;
+}
+
 const heartRateData = [
   { time: '08:00', value: 72 }, { time: '10:00', value: 75 },
   { time: '12:00', value: 80 }, { time: '14:00', value: 78 },
@@ -35,7 +43,7 @@ const bloodPressureData = [
 
 export default function CaregiverView({ elderId, caregiverName, onSignOut }: CaregiverViewProps) {
   const { meds, addMedication, deleteMedication } = useRealtimeMeds(elderId);
-  const { alerts } = useRealtimeAlerts(elderId);
+  const { alerts, markAsRead } = useRealtimeAlerts(elderId);
 
   const [elderProfile, setElderProfile] = useState<{ name: string; phone: string } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -56,7 +64,24 @@ export default function CaregiverView({ elderId, caregiverName, onSignOut }: Car
   }, [elderId]);
 
   const unreadAlerts = alerts.filter(a => !a.read);
-  const mapCenter: [number, number] = [21.0382, 105.7827];
+  const [mapCenter, setMapCenter] = useState<[number, number]>([21.0382, 105.7827]);
+
+  // Extract the latest location from alerts for persistence across refreshes
+  useEffect(() => {
+    const locAlert = alerts.find(a => a.message.includes('|'));
+    if (locAlert) {
+      const parts = locAlert.message.split('|');
+      if (parts.length > 1) {
+        const coordsStr = parts[parts.length - 1];
+        const [latStr, lngStr] = coordsStr.split(',');
+        const lat = parseFloat(latStr);
+        const lng = parseFloat(lngStr);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          setMapCenter([lat, lng]);
+        }
+      }
+    }
+  }, [alerts]);
 
   const handleAddMedSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,20 +118,52 @@ export default function CaregiverView({ elderId, caregiverName, onSignOut }: Car
 
       <div className="cg-content">
         {/* Alerts */}
-        {alerts.length > 0 && (
+        {unreadAlerts.length > 0 && (
           <div className="cg-alerts">
-            {alerts.slice(0, 5).map(alert => (
+            {unreadAlerts.slice(0, 5).map(alert => (
               <div key={alert.id} className={`cg-alert-banner ${alert.type === 'sos' ? 'danger' : alert.type === 'health' ? 'success' : ''}`}>
                 <span className="cg-alert-icon">
                   <FontAwesomeIcon icon={alert.type === 'medication' ? faPills : alert.type === 'sos' ? faTriangleExclamation : alert.type === 'health' ? faHeartPulse : faExclamation} />
                 </span>
-                <span className="cg-alert-text">{alert.message}</span>
+                <span className="cg-alert-text">{alert.message.split('|')[0]}</span>
                 <span className="cg-alert-time">{new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <button
+                  onClick={() => markAsRead(alert.id)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'inherit',
+                    opacity: 0.7,
+                    cursor: 'pointer',
+                    marginLeft: '8px',
+                    padding: '4px'
+                  }}
+                  aria-label="Đóng"
+                >
+                  <FontAwesomeIcon icon={faXmark} />
+                </button>
               </div>
             ))}
           </div>
         )}
-
+        <div className="cg-section">
+          <div className="cg-section-header"><span className="cg-section-title"><FontAwesomeIcon icon={faPills} /> Lịch uống thuốc</span></div>
+          {meds.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'var(--gray-500)', padding: '20px' }}>Chưa có lịch thuốc.</p>
+          ) : (
+            meds.map((med) => (
+              <div key={med.id} className="cg-med-item">
+                <div className={`cg-med-check ${med.status}`}>
+                  {med.status === 'completed' ? <FontAwesomeIcon icon={faCheck} /> : med.status === 'missed' ? <FontAwesomeIcon icon={faXmark} /> : ''}
+                </div>
+                <div className="cg-med-info">
+                  <div className="cg-med-name">{med.name}</div>
+                  <div className="cg-med-meta">{med.time} · {med.dosage}</div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
         {/* Charts */}
         <div className="cg-section">
           <div className="cg-section-header"><span className="cg-section-title"><FontAwesomeIcon icon={faHeart} /> Nhịp tim (Hôm nay)</span></div>
@@ -140,31 +197,12 @@ export default function CaregiverView({ elderId, caregiverName, onSignOut }: Car
           </div>
         </div>
 
-        {/* Medications */}
-        <div className="cg-section">
-          <div className="cg-section-header"><span className="cg-section-title"><FontAwesomeIcon icon={faPills} /> Lịch uống thuốc</span></div>
-          {meds.length === 0 ? (
-            <p style={{ textAlign: 'center', color: 'var(--gray-500)', padding: '20px' }}>Chưa có lịch thuốc.</p>
-          ) : (
-            meds.map((med) => (
-              <div key={med.id} className="cg-med-item">
-                <div className={`cg-med-check ${med.status}`}>
-                  {med.status === 'completed' ? <FontAwesomeIcon icon={faCheck} /> : med.status === 'missed' ? <FontAwesomeIcon icon={faXmark} /> : ''}
-                </div>
-                <div className="cg-med-info">
-                  <div className="cg-med-name">{med.name}</div>
-                  <div className="cg-med-meta">{med.time} · {med.dosage}</div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
         {/* Map */}
         <div className="cg-section">
           <div className="cg-section-header"><span className="cg-section-title"><FontAwesomeIcon icon={faLocationDot} /> Vị trí & Vùng an toàn</span></div>
           <div style={{ height: '250px', borderRadius: '12px', overflow: 'hidden' }}>
             <MapContainer center={mapCenter} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+              <MapRecenter center={mapCenter} />
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <Marker position={mapCenter}><Popup>Vị trí hiện tại</Popup></Marker>
               <Circle center={mapCenter} radius={500} pathOptions={{ color: '#059669', fillColor: '#059669', fillOpacity: 0.2 }} />
